@@ -1,0 +1,1039 @@
+{
+  "name": "Trini_RAG_max",
+  "nodes": [
+    {
+      "parameters": {
+        "mode": "insert",
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "trinisolar",
+          "mode": "list",
+          "cachedResultName": "trinisolar"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        1504,
+        672
+      ],
+      "id": "bef19eac-a1f7-4d71-9462-3976b5fd8626",
+      "name": "Pinecone Vector Store",
+      "credentials": {
+        "pineconeApi": {
+          "id": "N7qUuN5ReZ8slQ4H",
+          "name": "Trini PineconeApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "intfloat/multilingual-e5-large-instruct",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsHuggingFaceInference",
+      "typeVersion": 1,
+      "position": [
+        1632,
+        1088
+      ],
+      "id": "892dcf33-3a7d-4c87-a868-8bc3ff7c3de8",
+      "name": "Embeddings HuggingFace Inference",
+      "credentials": {
+        "huggingFaceApi": {
+          "id": "poDkUYW9bYVejfmi",
+          "name": "trini HuggingFaceApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataType": "binary",
+        "textSplittingMode": "custom",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        1776,
+        864
+      ],
+      "id": "9861f193-1284-412d-bc25-eb633b4112f9",
+      "name": "Default Data Loader1"
+    },
+    {
+      "parameters": {
+        "chunkSize": 2000,
+        "chunkOverlap": 200,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        1888,
+        1056
+      ],
+      "id": "061d5598-1318-4792-be32-78eec5cfaeeb",
+      "name": "Recursive Character Text Splitter1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=solicitud del usuario: {{ $('When chat message received').item.json.chatInput }}",
+        "options": {
+          "systemMessage": "=\n\n# MENSAJE DEL SISTEMA – AGENTE IA DE ALP GROUP ARGENTINA\n\n## ROL Y FINALIDAD\n\nSos un agente especializado en brindar información precisa, verificada y actualizada sobre **ALP Group Argentina**, una empresa de energía solar fotovoltaica con sede en Buenos Aires.\n\nEstás diseñado para guiar a usuarios a:\n\n* Comprender la oferta y procesos de ALP Group.\n* Identificar soluciones aplicables a su caso (hogar, campo o empresa).\n* Obtener respuestas confiables sin suposiciones ni ambigüedades.\n* **Captar y registrar información del cliente para el CRM a través de una herramienta de Google Sheets.**\n\nTu objetivo es **ayudar y, al mismo tiempo, completar el perfil del lead**.\n\n---\n\n## CAPTURA DE DATOS PARA CRM\n\nDurante la conversación, debés identificar y mantener actualizadas internamente las siguientes variables del cliente:\n\n1. **tipo_solucion**: \"Hogares\", \"Campos\", \"Industrias\"\n2. **tipo_producto**: \"Solar\", \"Respaldo\", \"Híbrido\"\n3. **ubicacion**: Localidad y provincia (ej: \"San Isidro, Buenos Aires\")\n4. **categoria_tarifa**: R1-R9, N1-N3 (ej: \"R6\")\n5. **consumo_kwh**: Número entero del consumo mensual (ej: 450)\n6. **tipo_instalacion**: \"Monofásica\" o \"Trifásica\"\n7. **tipo_techo**: \"Losa\", \"Chapa\", \"Teja\", \"Otro\"\n8. **m2_disponibles**: Número entero de metros cuadrados (ej: 40)\n9. **nombre_cliente**: Nombre completo del cliente\n10. **telefono**: Número de teléfono con formato (ej: \"11-5555-5555\")\n11. **email**: Dirección de correo electrónico\n12. **horario_contacto**: Horario preferido (ej: \"después de las 17 hs\")\n\n### Reglas de captura\n\n* **Registrá cada dato apenas el cliente lo mencione.**\n* **No vuelvas a preguntar datos ya capturados**, salvo que el cliente los corrija o pida cambiarlos.\n* **Usá los valores exactos** que el cliente diga para las opciones (ej: \"R6\", \"Monofásica\", \"Chapa\").\n* **Respetá el formato** indicado (ej: no reformatear teléfono o email si no es necesario).\n\n---\n\n## INTEGRACIÓN CON GOOGLE SHEETS (TOOL DE CRM)\n\nDisponés de una herramienta llamada, por convención, **`google_sheets_actualizar_lead`** (el nombre exacto puede variar en tu configuración de herramientas, pero el comportamiento esperado es este):\n\n* La tool **guarda o actualiza un registro de lead** en una hoja de cálculo de Google Sheets.\n* La tool recibe como parámetros las mismas variables definidas arriba:\n\n  * tipo_solucion\n  * tipo_producto\n  * ubicacion\n  * categoria_tarifa\n  * consumo_kwh\n  * tipo_instalacion\n  * tipo_techo\n  * m2_disponibles\n  * nombre_cliente\n  * telefono\n  * email\n  * horario_contacto\n\n### Reglas de uso de la tool\n\n* Cada vez que el usuario aporte un dato nuevo o corrija uno existente para alguna de estas variables, debés:\n\n  1. **Actualizar tu “memoria interna” de esas variables**.\n  2. **Invocar la tool `google_sheets_actualizar_lead`** pasando **todas las variables conocidas hasta el momento**.\n* Si alguna variable todavía no se conoce, la enviás vacía o nula según la interfaz de la tool.\n* Podés llamar a la tool varias veces a lo largo de la conversación (por ejemplo, al inicio cuando se captura tipo_solucion, luego cuando se sabe la ubicación, etc.).\n* **Nunca expliques al usuario que estás llamando a una herramienta o a Google Sheets.** Debe ser invisible para el cliente.\n* Para el usuario, solo debe verse una conversación natural de preguntas y respuestas.\n\n---\n\n## REGLAS DE EXTRACCIÓN / MAPEOS DE TEXTO A VARIABLES\n\nAntes de responder, debés leer el último mensaje del usuario y ver si aporta datos que se puedan mapear a las variables.\n\n### tipo_solucion\n\n* Si el usuario habla de:\n\n  * \"mi casa\", \"mi hogar\", \"departamento\", \"dpto\", \"casa\", \"vivienda\", \"PH\"\n    → **tipo_solucion = \"Hogares\"**\n\n* Si habla de:\n\n  * \"campo\", \"chacra\", \"estancia\", \"quinta\", \"tambo\", \"campo agrícola\"\n    → **tipo_solucion = \"Campos\"**\n\n* Si habla de:\n\n  * \"empresa\", \"fábrica\", \"industria\", \"galpón\", \"depósito\", \"local comercial\", \"negocio\"\n    → **tipo_solucion = \"Industrias\"**\n\n### tipo_producto\n\n* Referencias a: \"paneles solares\", \"generar electricidad\", \"reducir la factura\", \"bajar la luz\", \"sistema solar\"\n  → **tipo_producto = \"Solar\"**\n\n* Referencias a: \"respaldo\", \"baterías\", \"cortes de luz\", \"grupo electrógeno solar\", \"UPS\"\n  → **tipo_producto = \"Respaldo\"**\n\n* Referencias a: \"híbrido\", \"solar con baterías\", \"solar + baterías\"\n  → **tipo_producto = \"Híbrido\"**\n\n### ubicacion\n\n* Si menciona localidad y/o provincia (\"San Isidro, Buenos Aires\", \"Rosario, Santa Fe\", \"Mendoza\", etc.), registrar el texto tal cual en **ubicacion**.\n\n### categoria_tarifa\n\n* Si menciona alguno de los valores: \"R1\"...\"R9\", \"N1\", \"N2\", \"N3\", asignarlo directamente a **categoria_tarifa**.\n\n### consumo_kwh\n\n* Si menciona frases como:\n\n  * \"consumo X kWh\", \"aproximadamente X kWh\", \"gasto X kilowatts hora\", etc.\n    → Extraer el número y almacenarlo como entero en **consumo_kwh** (ej: 450).\n\n### tipo_instalacion\n\n* Si menciona \"monofásica\" / \"monofasica\" → **tipo_instalacion = \"Monofásica\"**\n* Si menciona \"trifásica\" / \"trifasica\" → **tipo_instalacion = \"Trifásica\"**\n\n### tipo_techo\n\n* \"losa\", \"terraza de losa\", \"terraza de hormigón\" → **tipo_techo = \"Losa\"**\n* \"chapa\", \"techo de chapa\" → **tipo_techo = \"Chapa\"**\n* \"teja\", \"techo de tejas\" → **tipo_techo = \"Teja\"**\n* Cualquier otra descripción → **tipo_techo = \"Otro\"**\n\n### m2_disponibles\n\n* Si menciona \"X m2\", \"X metros cuadrados de techo\", \"tengo unos X metros de techo\", etc.\n  → extraer el número entero y asignarlo a **m2_disponibles**.\n\n### nombre_cliente\n\n* Frases como: \"soy [Nombre Apellido]\", \"me llamo [Nombre]\", \"mi nombre es [Nombre Apellido]\"\n  → asignar texto a **nombre_cliente**.\n\n### telefono\n\n* Cualquier número que parezca teléfono argentino (\"11-5555-5555\", \"11 5555 5555\", \"+54 9 11 5555 5555\")\n  → asignar a **telefono** tal cual.\n\n### email\n\n* Cualquier texto con formato de correo (ej: \"[nombre@dominio.com](mailto:nombre@dominio.com)\")\n  → asignar a **email**.\n\n### horario_contacto\n\n* Frases como: \"después de las 17 hs\", \"a la mañana\", \"a la tarde\", \"entre las 14 y las 18\", etc.\n  → asignar texto a **horario_contacto**.\n\n---\n\n## ALCANCE AUTORIZADO (TEMAS QUE PODÉS RESPONDER)\n\nSolo respondés consultas relacionadas con:\n\n1. **Identidad de la empresa:**\n\n   * Historia, misión, ubicación, trayectoria.\n\n2. **Segmentos de clientes:**\n\n   * Residencial (hogares)\n   * Agrícola (campos)\n   * Empresarial (industrias)\n\n3. **Tipos de sistemas solares:**\n\n   * On-Grid (conectado a red)\n   * Off-Grid (autónomo)\n   * Bombeo solar\n   * UPS (respaldo energético)\n\n4. **Componentes y calidad:**\n\n   * Paneles Tier One\n   * Inversores\n   * Baterías\n   * Certificaciones\n\n5. **Proceso operativo:**\n\n   * Contacto\n   * Relevamiento\n   * Diseño\n   * Presupuesto\n   * Instalación\n   * Puesta en marcha\n   * Postventa\n\n6. **Financiamiento:**\n\n   * Pago contado\n   * Cuotas\n   * Leasing para empresas\n\n7. **Beneficios y métricas:**\n\n   * Ahorro en factura\n   * Tiempo de repago\n   * Independencia energética\n   * Impacto ambiental (reducción de CO₂)\n\n8. **Restricciones:**\n\n   * Nunca respondas por otras empresas con siglas \"ALP\" (ej. ALP Logistics, ALP Group India, etc.).\n   * Ante consultas de ese tipo, respondé:\n\n     > \"Solo tengo información validada sobre ALP Group Argentina (Energía Solar). ¿Querés que lo relacione con soluciones solares?\"\n\n---\n\n## CÁLCULO AUTOMÁTICO DE CAMPOS DERIVADOS (USO INTERNO / SHEETS)\n\nAdemás de los campos básicos, debés poder derivar internamente:\n\n### estado_lead\n\n* **\"Caliente\"**:\n\n  * consumo_kwh > 500\n  * Y email capturado\n  * Y teléfono capturado\n\n* **\"Tibio\"**:\n\n  * consumo_kwh > 200\n  * O email capturado\n  * O teléfono capturado\n\n* **\"Frío\"**: resto de los casos.\n\n*(Podés incluir este campo también en los datos enviados a la tool de Google Sheets si la herramienta lo contempla.)*\n\n### kit_sugerido\n\nEn función de **consumo_kwh**:\n\n* consumo_kwh ≥ 2000 → **\"12-15kW\"**\n* consumo_kwh ≥ 1000 → **\"10kW\"**\n* consumo_kwh ≥ 500 → **\"5kW\"**\n* consumo_kwh < 500 → **\"3kW\"**\n\nSi **tipo_producto = \"Híbrido\"**, el kit sugerido puede representarse como:\n\n* `\"Híbrido-3kW\"`, `\"Híbrido-5kW\"`, `\"Híbrido-10kW\"`, etc., según el tamaño calculado.\n\n---\n\n## FORMATO Y EJEMPLO DE CONVERSACIÓN\n\n### 1️⃣ Identificación de la necesidad\n\n**Agente:**\nHola 👋 ¿Qué tipo de solución de energía estás buscando?\n🏠 Para hogares\n🌾 Para campos\n🏭 Para industrias\n\n**Cliente:** Para mi casa.\n\n→ Internamente: tipo_solucion = \"Hogares\" → llamás a la tool de Google Sheets con este valor actualizado.\n\n**Agente:**\nPerfecto 😊. ¿En qué tipo de producto estás interesado?\n⚡ Sistema solar para generar electricidad y reducir el gasto de energía\n🔋 Sistema de respaldo ante cortes de luz (con baterías)\n🔄 Sistema híbrido (solar + baterías)\n\n---\n\n## COMPORTAMIENTO DEL AGENTE\n\n### Búsqueda y precisión\n\n* Reformulá la consulta del usuario como búsqueda interna o en tu base de conocimiento cuando haga falta.\n* Respondé siempre con información **coherente, clara y respaldada**.\n* Si algo no está documentado, decí: **\"No tengo respaldo documental para eso\"** y, si es útil, ofrecé un cálculo o estimación orientativa claramente marcada como tal.\n\n### Si preguntan por otra empresa ALP\n\n* Respondé:\n\n  > \"Solo tengo información validada sobre ALP Group Argentina (Energía Solar). ¿Querés que lo relacione con soluciones solares?\"\n\n---\n\n## TONO Y ESTILO\n\n* Profesional, directo y empático.\n* Evitá jerga técnica innecesaria; explicá conceptos de forma simple.\n* Usá listas o bullets cuando faciliten la comprensión.\n* No menciones nunca que estás capturando datos ni que estás usando Google Sheets o una tool.\n* Cerrá siempre de forma abierta, invitando a seguir la conversación (ej: “¿Te gustaría que te ayude a estimar el tamaño del sistema para tu caso?”).\n\n---\n\n## DATOS DE CONTACTO (EN LA RESPUESTA AL FINAL DE LA CHARLA)\n\nCuando el cliente parezca haber terminado la conversación o pida datos de contacto, incluí:\n\n📞 0800-1427-123\n📧 [info@alpgroup.com.ar](mailto:info@alpgroup.com.ar)\n📍 Aguero 1234, CABA\n\n---\n\n## FORMATO DE RESPUESTA\n\n- Siempre devolvé una respuesta en texto plano, en español, dirigida al cliente.\n- Nunca dejes la respuesta vacía.\n- Si el mensaje del usuario llega vacío, incompleto o no entendés la consulta, respondé algo como:\n  \"No llegué a entender bien tu consulta 🤔 ¿Me contás un poco mejor qué necesitás para tu casa/campo/empresa?\"\n- Aunque utilices la herramienta de Google Sheets para actualizar el CRM, SIEMPRE tenés que enviar un mensaje final visible para el cliente explicando lo que le estás ofreciendo o preguntando el siguiente dato.\n\n\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        736,
+        48
+      ],
+      "id": "e49b155e-911d-4079-b5fe-6e468e55590b",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-20250514",
+          "cachedResultName": "Claude 4 Sonnet"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        64,
+        464
+      ],
+      "id": "60f9cb1d-11c0-4a45-9d79-9c1429ab9e76",
+      "name": "Anthropic Chat Model1",
+      "credentials": {
+        "anthropicApi": {
+          "id": "SkEPMOEGOpE9Yf3h",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "APL group knowledgebase",
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "trinisolar",
+          "mode": "list",
+          "cachedResultName": "trinisolar"
+        },
+        "topK": 20,
+        "useReranker": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        752,
+        272
+      ],
+      "id": "d7fd1e15-87ef-4559-8e80-d4690e200a88",
+      "name": "Vector",
+      "credentials": {
+        "pineconeApi": {
+          "id": "N7qUuN5ReZ8slQ4H",
+          "name": "Trini PineconeApi account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.rerankerCohere",
+      "typeVersion": 1,
+      "position": [
+        1328,
+        480
+      ],
+      "id": "ac2bb5de-6611-4ceb-b3e1-24db8eba8a77",
+      "name": "Reranker Cohere1",
+      "credentials": {
+        "cohereApi": {
+          "id": "vKWJl5wuog3UFdvU",
+          "name": "CohereApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "formTitle": "🧠 BenchPress Nation Knowledge",
+        "formDescription": "Insert knowledge below",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Insert Documents",
+              "fieldType": "file"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        1296,
+        720
+      ],
+      "id": "4988d916-587d-409a-8d7f-d6ad82cf4967",
+      "name": "On form submission",
+      "webhookId": "495e683d-10db-485e-b8aa-f5bf4000090b"
+    },
+    {
+      "parameters": {
+        "content": "# 🤖 Agente",
+        "height": 784,
+        "width": 2048
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -384,
+        -64
+      ],
+      "typeVersion": 1,
+      "id": "3602e00a-29d7-440a-8d74-9af452f0ad4a",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "# 🧠 Base de datos",
+        "height": 688,
+        "width": 880,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1168,
+        624
+      ],
+      "typeVersion": 1,
+      "id": "2d8d17c8-d7f8-4614-b739-d96fe0f643f5",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "modelName": "intfloat/multilingual-e5-large-instruct",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsHuggingFaceInference",
+      "typeVersion": 1,
+      "position": [
+        832,
+        480
+      ],
+      "id": "ee4ab64b-7c08-479f-aeb8-c6809205ab4c",
+      "name": "Embeddings HuggingFace Inference1",
+      "credentials": {
+        "huggingFaceApi": {
+          "id": "poDkUYW9bYVejfmi",
+          "name": "trini HuggingFaceApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "public": true,
+        "mode": "webhook",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -144,
+        48
+      ],
+      "id": "f6c05980-44a1-4e9b-a3c3-cbd49967f7e4",
+      "name": "When chat message received",
+      "webhookId": "15ec5689-dd61-4429-9e21-a932e983b65a"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        272
+      ],
+      "id": "989ea248-048b-4c17-9283-add65c31c9aa",
+      "name": "Calculator"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"respuesta_agente\": \"Texto que responderías normalmente al usuario.\",\n  \"datos_capturados\": {\n    \"tipo_solucion\": null,\n    \"tipo_producto\": null,\n    \"ubicacion\": null,\n    \"categoria_tarifa\": null,\n    \"consumo_kwh\": null,\n    \"tipo_instalacion\": null,\n    \"tipo_techo\": null,\n    \"m2_disponibles\": null,\n    \"nombre_cliente\": null,\n    \"telefono\": null,\n    \"email\": null,\n    \"horario_contacto\": null\n  },\n  \"datos_calculados\": {\n    \"estado_lead\": null,\n    \"kit_sugerido\": null\n  }\n}\n",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        256,
+        592
+      ],
+      "id": "bde37eca-b9c0-4e72-a14c-05dba262885c",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1vuGJrk6arYQAL-TcU4To-AevUWaGQQ5IKOLr1_vNw5g",
+          "mode": "list",
+          "cachedResultName": "ALP Group",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1vuGJrk6arYQAL-TcU4To-AevUWaGQQ5IKOLr1_vNw5g/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 125280768,
+          "mode": "list",
+          "cachedResultName": "Datos",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1vuGJrk6arYQAL-TcU4To-AevUWaGQQ5IKOLr1_vNw5g/edit#gid=125280768"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id_conversacion": "={{ $json.id_conversacion }}",
+            "fecha_hora": "={{ $now.format('yyyy-MM-dd') }}",
+            "tipo_solucion": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('tipo_solucion', ``, 'string') }}",
+            "tipo_producto": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('tipo_producto', ``, 'string') }}",
+            "ubicacion": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('ubicacion', ``, 'string') }}",
+            "categoria_tarifa": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('categoria_tarifa', ``, 'string') }}",
+            "consumo_kwh": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('consumo_kwh', ``, 'string') }}",
+            "tipo_instalacion": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('tipo_instalacion', ``, 'string') }}",
+            "tipo_techo": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('tipo_techo', ``, 'string') }}",
+            "m2_disponibles": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('m2_disponibles', ``, 'string') }}",
+            "nombre_cliente": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('nombre_cliente', ``, 'string') }}",
+            "telefono": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('telefono', ``, 'string') }}",
+            "email": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('email', ``, 'string') }}",
+            "horario_contacto": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('horario_contacto', ``, 'string') }}",
+            "estado_lead": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('estado_lead', ``, 'string') }}",
+            "kit_sugerido": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('kit_sugerido', ``, 'string') }}",
+            "notas": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('notas', ``, 'string') }}",
+            "mensaje_actual": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('mensaje_actual', ``, 'string') }}",
+            "respuesta_ai": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('respuesta_ai', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "id_conversacion"
+          ],
+          "schema": [
+            {
+              "id": "fecha_hora",
+              "displayName": "fecha_hora",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "id_conversacion",
+              "displayName": "id_conversacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "tipo_solucion",
+              "displayName": "tipo_solucion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tipo_producto",
+              "displayName": "tipo_producto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ubicacion",
+              "displayName": "ubicacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "categoria_tarifa",
+              "displayName": "categoria_tarifa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "consumo_kwh",
+              "displayName": "consumo_kwh",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tipo_instalacion",
+              "displayName": "tipo_instalacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tipo_techo",
+              "displayName": "tipo_techo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "m2_disponibles",
+              "displayName": "m2_disponibles",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nombre_cliente",
+              "displayName": "nombre_cliente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "telefono",
+              "displayName": "telefono",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "horario_contacto",
+              "displayName": "horario_contacto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado_lead",
+              "displayName": "estado_lead",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "kit_sugerido",
+              "displayName": "kit_sugerido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "notas",
+              "displayName": "notas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mensaje_actual",
+              "displayName": "mensaje_actual",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "respuesta_ai",
+              "displayName": "respuesta_ai",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        1168,
+        272
+      ],
+      "id": "9aaf5091-c2b0-4194-8bfe-b667752424a3",
+      "name": "Update row in sheet in Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "dNM9AAlh7KC7mn0E",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1vuGJrk6arYQAL-TcU4To-AevUWaGQQ5IKOLr1_vNw5g",
+          "mode": "list",
+          "cachedResultName": "ALP Group",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1vuGJrk6arYQAL-TcU4To-AevUWaGQQ5IKOLr1_vNw5g/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 125280768,
+          "mode": "list",
+          "cachedResultName": "Datos",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1vuGJrk6arYQAL-TcU4To-AevUWaGQQ5IKOLr1_vNw5g/edit#gid=125280768"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "id_conversacion",
+              "lookupValue": "={{ $json.sessionId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        80,
+        48
+      ],
+      "id": "cfd48e4d-faf1-4a84-bbad-5996c3108d21",
+      "name": "Get row(s) in sheet",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "dNM9AAlh7KC7mn0E",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9cb01bc8-60e1-4b9b-b717-450e1c290861",
+              "leftValue": "={{ $json.id_conversacion }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        304,
+        48
+      ],
+      "id": "b20d5e62-922b-4cca-ac4a-40f2f79e6140",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1vuGJrk6arYQAL-TcU4To-AevUWaGQQ5IKOLr1_vNw5g",
+          "mode": "list",
+          "cachedResultName": "ALP Group",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1vuGJrk6arYQAL-TcU4To-AevUWaGQQ5IKOLr1_vNw5g/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 125280768,
+          "mode": "list",
+          "cachedResultName": "Datos",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1vuGJrk6arYQAL-TcU4To-AevUWaGQQ5IKOLr1_vNw5g/edit#gid=125280768"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id_conversacion": "={{ $('When chat message received').item.json.sessionId }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "fecha_hora",
+              "displayName": "fecha_hora",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "id_conversacion",
+              "displayName": "id_conversacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tipo_solucion",
+              "displayName": "tipo_solucion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tipo_producto",
+              "displayName": "tipo_producto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ubicacion",
+              "displayName": "ubicacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "categoria_tarifa",
+              "displayName": "categoria_tarifa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "consumo_kwh",
+              "displayName": "consumo_kwh",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tipo_instalacion",
+              "displayName": "tipo_instalacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tipo_techo",
+              "displayName": "tipo_techo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "m2_disponibles",
+              "displayName": "m2_disponibles",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nombre_cliente",
+              "displayName": "nombre_cliente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "telefono",
+              "displayName": "telefono",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "horario_contacto",
+              "displayName": "horario_contacto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado_lead",
+              "displayName": "estado_lead",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "kit_sugerido",
+              "displayName": "kit_sugerido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "notas",
+              "displayName": "notas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mensaje_actual",
+              "displayName": "mensaje_actual",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "respuesta_ai",
+              "displayName": "respuesta_ai",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        512,
+        144
+      ],
+      "id": "0f4e2ad7-911f-49ad-845c-858331f12fac",
+      "name": "Append row in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "dNM9AAlh7KC7mn0E",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        592,
+        432
+      ],
+      "id": "033d763c-acb3-4e69-8bc9-82626e0f7fa2",
+      "name": "Simple Memory1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Embeddings HuggingFace Inference": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader1": {
+      "ai_document": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter1": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader1",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vector": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reranker Cohere1": {
+      "ai_reranker": [
+        [
+          {
+            "node": "Vector",
+            "type": "ai_reranker",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        []
+      ]
+    },
+    "Embeddings HuggingFace Inference1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Vector",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        []
+      ]
+    },
+    "Update row in sheet in Google Sheets": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Argentina/Buenos_Aires",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "871b43d9-fe68-4971-adce-28531ccfeece",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "edef5432557ad20fe5eff2e69a5e4abbcc8562eb8d06f8f76753f9f8c1a2b984"
+  },
+  "id": "DxOoreRmUIcUmXOi",
+  "tags": []
+}
